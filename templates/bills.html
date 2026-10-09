@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}Saved Bills &amp; Invoices – Shop Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-archive me-2"></i>Saved Bills &amp; Receipts</h4>
+    <small class="text-muted">Search, view, print, or manage past transactions</small>
+  </div>
+  <a href="{{ url_for('billing_page') }}" class="btn btn-success btn-sm">
+    <i class="bi bi-plus-circle me-1"></i> New Bill (POS)
+  </a>
+</div>
+
+{% if bills %}
+
+<!-- ── Search & Filter Controls ───────────────────────── -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:12px;">
+  <div class="card-body p-3">
+    <div class="row g-3 align-items-end">
+
+      <!-- Live filter -->
+      <div class="col-md-6">
+        <label for="searchInput" class="form-label fw-semibold mb-1">
+          <i class="bi bi-search me-1 text-primary"></i>Search Bills
+        </label>
+        <input type="text" id="searchInput" class="form-control"
+               placeholder="Search by Bill ID, customer name, address, or cashier..."
+               autocomplete="off">
+        <div class="form-text" id="searchCount">
+          Showing all {{ bills | length }} bill(s).
+        </div>
+      </div>
+
+      <!-- Direct jump by exact Bill ID -->
+      <div class="col-md-6">
+        <label class="form-label fw-semibold mb-1">
+          <i class="bi bi-box-arrow-in-right me-1 text-success"></i>Direct Jump to Bill ID
+        </label>
+        <div class="input-group">
+          <input type="text" id="jumpInput" class="form-control"
+                 placeholder="Paste or type exact Bill ID..."
+                 autocomplete="off">
+          <button class="btn btn-success" id="jumpBtn" type="button">
+            <i class="bi bi-arrow-right-circle me-1"></i>Open
+          </button>
+        </div>
+        <div class="form-text text-danger d-none" id="jumpError">
+          Bill not found. Check the ID and try again.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ── Bills table ─────────────────────────────────────── -->
+<div class="card border-0 shadow-sm" style="border-radius:12px; overflow:hidden;">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" id="billsTable">
+        <thead>
+          <tr>
+            <th class="ps-4">#</th>
+            <th>Bill ID</th>
+            <th>Customer Name</th>
+            <th>Address</th>
+            <th>Total Amount</th>
+            <th>Cashier</th>
+            <th class="text-center">Security</th>
+            <th class="text-end pe-4">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="billsBody">
+          {% for bill in bills %}
+          <tr class="bill-row"
+              data-id="{{ bill.bill_id }}"
+              data-name="{{ bill.customer_name | lower }}"
+              data-address="{{ bill.customer_address | lower }}"
+              data-creator="{{ bill.created_by | lower }}">
+            <td class="ps-4 text-muted row-num">{{ loop.index }}</td>
+            <td>
+              <i class="bi bi-file-earmark-text me-1 text-primary"></i>
+              <code>{{ bill.bill_id }}</code>
+            </td>
+            <td class="fw-semibold">
+              {{ bill.customer_name if bill.customer_name else '—' }}
+            </td>
+            <td class="text-muted small">
+              {{ bill.customer_address if bill.customer_address else '—' }}
+            </td>
+            <td class="fw-bold text-dark">
+              Rs. {{ "%.2f" | format(bill.total_amount) }}
+            </td>
+            <td>
+              <span class="badge bg-light text-dark border">{{ bill.created_by }}</span>
+            </td>
+            <td class="text-center">
+              {% if bill.protected %}
+                <span class="badge bg-warning text-dark">
+                  <i class="bi bi-lock-fill me-1"></i>Protected
+                </span>
+              {% else %}
+                <span class="badge bg-light text-muted border">No Pass</span>
+              {% endif %}
+            </td>
+            <td class="text-end pe-4 text-nowrap">
+              <!-- View Button -->
+              <a href="{{ url_for('view_bill', bill_id=bill.bill_id) }}"
+                 class="btn btn-sm btn-outline-primary me-1" title="View / Print">
+                <i class="bi bi-eye"></i> View
+              </a>
+
+              <!-- Edit Button -->
+              <a href="{{ url_for('edit_bill', bill_id=bill.bill_id) }}"
+                 class="btn btn-sm btn-outline-secondary me-1" title="Edit Customer Details">
+                <i class="bi bi-pencil"></i>
+              </a>
+
+              <!-- Admin Recovery & Delete Actions -->
+              {% if is_admin %}
+                {% if bill.protected %}
+                  <a href="{{ url_for('admin_unlock_bill', bill_id=bill.bill_id) }}"
+                     class="btn btn-sm btn-outline-success me-1" title="Admin Master Unlock (Forgotten Password)">
+                    <i class="bi bi-unlock-fill"></i>
+                  </a>
+                  <a href="{{ url_for('reset_bill_password', bill_id=bill.bill_id) }}"
+                     class="btn btn-sm btn-outline-warning text-dark me-1" title="Reset / Remove Password">
+                    <i class="bi bi-key-fill"></i>
+                  </a>
+                {% endif %}
+                <form method="POST" action="{{ url_for('delete_bill', bill_id=bill.bill_id) }}"
+                      class="d-inline" onsubmit="return confirm('Permanently delete Bill {{ bill.bill_id }}?');">
+                  <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Bill">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- No results message -->
+    <div id="noResults" class="text-center py-4 text-muted d-none">
+      <i class="bi bi-search fs-2"></i>
+      <p class="mt-2 mb-0">No bills match your search query.</p>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-archive" style="font-size:3rem;"></i>
+  <p class="mt-3">No saved bills found yet.</p>
+  <a href="{{ url_for('billing_page') }}" class="btn btn-success">Generate Your First Bill</a>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{% if bills %}
+<script>
+const ALL_BILL_IDS = {{ bills | map(attribute='bill_id') | list | tojson }};
+
+// ── Live search filter ──────────────────────────────────
+const searchInput = document.getElementById("searchInput");
+const searchCount = document.getElementById("searchCount");
+const noResults   = document.getElementById("noResults");
+
+searchInput.addEventListener("input", () => {
+  const query = searchInput.value.trim().toLowerCase();
+  const rows  = document.querySelectorAll(".bill-row");
+  let visible = 0;
+
+  rows.forEach(row => {
+    const id      = row.dataset.id.toLowerCase();
+    const name    = row.dataset.name;
+    const address = row.dataset.address;
+    const creator = row.dataset.creator;
+
+    if (!query || id.includes(query) || name.includes(query) || address.includes(query) || creator.includes(query)) {
+      row.style.display = "";
+      visible++;
+    } else {
+      row.style.display = "none";
+    }
+  });
+
+  let counter = 1;
+  rows.forEach(row => {
+    if (row.style.display !== "none") {
+      row.querySelector(".row-num").textContent = counter++;
+    }
+  });
+
+  const total = rows.length;
+  searchCount.textContent = query
+    ? `Showing ${visible} of ${total} bill(s) matching "${searchInput.value.trim()}"`
+    : `Showing all ${total} bill(s).`;
+
+  noResults.classList.toggle("d-none", visible > 0);
+});
+
+// ── Direct jump to bill ─────────────────────────────────
+const jumpInput = document.getElementById("jumpInput");
+const jumpBtn   = document.getElementById("jumpBtn");
+const jumpError = document.getElementById("jumpError");
+
+function doJump() {
+  const id    = jumpInput.value.trim().toUpperCase().replace(/-/g, "");
+  if (!id) return;
+  const match = ALL_BILL_IDS.find(b => b.toUpperCase() === id);
+  if (match) {
+    jumpError.classList.add("d-none");
+    window.location.href = `/bills/${match}`;
+  } else {
+    jumpError.classList.remove("d-none");
+    jumpInput.focus();
+  }
+}
+
+jumpBtn.addEventListener("click", doJump);
+jumpInput.addEventListener("keydown", e => { if (e.key === "Enter") doJump(); });
+</script>
+{% endif %}
+{% endblock %}

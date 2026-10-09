@@ -1,0 +1,8 @@
+{
+    "admin_recovery_pin": "778899",
+    "min_password_length": 6,
+    "max_login_attempts": 5,
+    "lockout_minutes": 5,
+    "pin_lockout_threshold": 3,
+    "pin_lockout_minutes": 10
+}

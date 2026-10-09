@@ -1,0 +1,668 @@
+{% extends "base.html" %}
+{% block title %}Generate Bill – Shop Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-receipt me-2"></i>Generate Customer Bill (POS)</h4>
+    <small class="text-muted">Search items, build cart, apply tax, and generate receipts</small>
+  </div>
+  <a href="{{ url_for('bills_list') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-archive me-1"></i> View Saved Bills
+  </a>
+</div>
+
+<!-- ── Customer details ───────────────────────────────── -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:14px;">
+  <div class="card-body p-4">
+    <h6 class="fw-bold text-secondary mb-3">
+      <i class="bi bi-person-fill me-1 text-primary"></i>CUSTOMER DETAILS
+    </h6>
+    <div class="row g-3">
+      <div class="col-md-5">
+        <label for="customerName" class="form-label fw-semibold">Customer Name <span class="text-danger">*</span></label>
+        <input type="text" id="customerName" class="form-control"
+               placeholder="e.g. John Smith" autocomplete="off" autofocus>
+      </div>
+      <div class="col-md-7">
+        <label for="customerAddress" class="form-label fw-semibold">Address <span class="text-muted fw-normal">(optional)</span></label>
+        <input type="text" id="customerAddress" class="form-control"
+               placeholder="e.g. 123 Main St, Kathmandu" autocomplete="off">
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+
+  <!-- ── Left: Item picker (Searchable) ──────────── -->
+  <div class="col-lg-5">
+    <div class="card border-0 shadow-sm h-100" style="border-radius:14px;">
+      <div class="card-body p-4">
+        <h6 class="fw-bold text-secondary mb-3">
+          <i class="bi bi-cart-plus me-1 text-primary"></i>ADD ITEMS TO CART
+        </h6>
+
+        {% if inventory %}
+          <!-- 1. Search item by typing name -->
+          <div class="mb-3 position-relative">
+            <label for="itemSearchInput" class="form-label fw-semibold">
+              <i class="bi bi-search me-1 text-primary"></i>Search Product by Name
+            </label>
+            <div class="input-group">
+              <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+              <input type="text" id="itemSearchInput" class="form-control form-control-lg"
+                     placeholder="Type name (e.g. Apple, Bread)..."
+                     autocomplete="off">
+              <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn" title="Clear">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
+
+            <!-- Floating Suggestions Dropdown -->
+            <div id="suggestionsList" class="list-group position-absolute w-100 shadow border rounded-3 mt-1"
+                 style="display: none; z-index: 1050; max-height: 250px; overflow-y: auto; background: #fff;">
+              <!-- Dynamically populated via JS -->
+            </div>
+            <div class="form-text">Type any part of the product name to filter immediately.</div>
+          </div>
+
+          <!-- 2. Full catalog dropdown selection -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label for="itemSelect" class="form-label fw-semibold small text-muted mb-0">Or choose from list:</label>
+              <span class="badge bg-light text-dark border small">{{ inventory | length }} products in stock</span>
+            </div>
+            <select id="itemSelect" class="form-select">
+              <option value="">-- Choose or use search box above --</option>
+              {% for name, details in inventory.items() %}
+              <option value="{{ name }}"
+                      data-price="{{ details.price }}"
+                      data-stock="{{ details.quantity }}">
+                {{ name }} — Rs. {{ "%.2f" | format(details.price) }} ({{ details.quantity }} in stock)
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- 3. Selected Product Card -->
+          <div id="selectedItemCard" class="card bg-light border p-3 mb-3 shadow-sm" style="display: none; border-radius: 10px;">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="fw-bold text-dark fs-6" id="selectedItemName">—</span>
+              <span class="badge bg-success" id="selectedItemStockBadge">—</span>
+            </div>
+            <div class="small text-muted">
+              Unit Price: <strong class="text-primary fs-6" id="selectedItemPrice">Rs. 0.00</strong>
+            </div>
+          </div>
+
+          <!-- 4. Quantity input with +/- stepper -->
+          <div class="mb-3">
+            <label for="qtyInput" class="form-label fw-semibold">Quantity</label>
+            <div class="input-group">
+              <button class="btn btn-outline-secondary" type="button" onclick="adjustQty(-1)">-</button>
+              <input type="number" id="qtyInput" class="form-control text-center fw-bold fs-5"
+                     value="1" min="1" placeholder="Qty">
+              <button class="btn btn-outline-secondary" type="button" onclick="adjustQty(1)">+</button>
+            </div>
+            <div id="stockHint" class="form-text text-muted mt-1"></div>
+          </div>
+
+          <button id="addToCartBtn" class="btn btn-primary w-100 btn-lg shadow-sm">
+            <i class="bi bi-cart-plus me-2"></i>Add to Cart
+          </button>
+        {% else %}
+          <div class="text-center py-4 text-muted">
+            <i class="bi bi-box-seam fs-1"></i>
+            <p class="mt-2">No items in stock.</p>
+            <a href="{{ url_for('add_item') }}" class="btn btn-sm btn-primary">Add Items to Inventory</a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Right: Cart ────────────────────────────── -->
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm" style="border-radius:14px;">
+      <div class="card-body p-4">
+        <h6 class="fw-bold text-secondary mb-3">
+          <i class="bi bi-basket3-fill me-1 text-primary"></i>CURRENT CART
+        </h6>
+
+        <!-- Cart table -->
+        <div id="cartContainer">
+          <table class="table" id="cartTable">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th class="text-center">Qty</th>
+                <th class="text-end">Unit</th>
+                <th class="text-end">Total</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="cartBody">
+              <!-- Rows added by JS -->
+            </tbody>
+            <tfoot id="cartFoot" style="display:none;">
+              <tr class="table-light" id="subtotalRow" style="display:none;">
+                <td colspan="3" class="text-end fw-semibold text-muted">Subtotal</td>
+                <td class="text-end fw-semibold text-muted" id="subtotalCell">Rs. 0.00</td>
+                <td></td>
+              </tr>
+              <tr class="table-light" id="vatRow" style="display:none;">
+                <td colspan="3" class="text-end text-success fw-semibold">VAT (13%)</td>
+                <td class="text-end text-success fw-semibold" id="vatCell">Rs. 0.00</td>
+                <td></td>
+              </tr>
+              <tr style="border-top:2px solid #1a237e;">
+                <td colspan="3" class="text-end fw-bold text-primary fs-5">TOTAL AMOUNT</td>
+                <td class="text-end fw-bold text-primary fs-5" id="totalCell">Rs. 0.00</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+          <p id="emptyCartMsg" class="text-muted text-center py-4">
+            <i class="bi bi-cart-x fs-2 d-block mb-2 text-muted"></i>
+            Your cart is empty. Type an item name on the left to add items.
+          </p>
+        </div>
+
+        <!-- Bill options -->
+        <div id="billOptions" style="display:none;">
+          <hr>
+
+          <!-- Optional 13% VAT Toggle -->
+          <div class="card bg-light border p-3 mb-3 shadow-sm" style="border-radius: 10px;">
+            <div class="form-check form-switch m-0 d-flex align-items-center justify-content-between">
+              <div>
+                <label class="form-check-label fw-bold text-dark mb-0" for="applyVatCheck" style="cursor: pointer;">
+                  <i class="bi bi-percent text-success me-1"></i>Apply 13% VAT
+                </label>
+                <div class="text-muted small">Optional tax option (adds 13% VAT to total &amp; receipt)</div>
+              </div>
+              <input class="form-check-input fs-4 m-0" type="checkbox" id="applyVatCheck" role="switch" style="cursor: pointer;">
+            </div>
+          </div>
+
+          <!-- Bill is ALWAYS saved automatically -->
+          <div class="alert alert-info py-2 px-3 mb-3 d-flex align-items-center gap-2">
+            <i class="bi bi-save-fill"></i>
+            <small>Receipt will be saved automatically with unique Bill ID.</small>
+          </div>
+          <div class="mb-3">
+            <label for="billPassword" class="form-label fw-semibold">
+              Password-protect bill <span class="text-muted fw-normal">(optional – leave blank for none)</span>
+            </label>
+            <input type="password" id="billPassword" class="form-control"
+                   placeholder="Leave blank for standard unlocked bill">
+          </div>
+          <button id="generateBtn" class="btn btn-success w-100 btn-lg shadow">
+            <i class="bi bi-receipt-cutoff me-2"></i>Generate Bill &amp; Print
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Receipt Modal ──────────────────────────────── -->
+<div class="modal fade" id="receiptModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0" style="border-radius:14px;">
+      <div class="modal-header bg-success text-white" style="border-radius:14px 14px 0 0;">
+        <h5 class="modal-title">
+          <i class="bi bi-check-circle-fill me-2"></i>Bill Generated Successfully!
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="d-flex gap-3 mb-3 flex-wrap">
+          <div class="flex-fill text-center p-3 rounded" style="background:#e8f5e9;">
+            <div class="text-muted small">Bill ID</div>
+            <div class="fw-bold text-success fs-5" id="modalBillId">—</div>
+          </div>
+          <div class="flex-fill text-center p-3 rounded" style="background:#fff3e0;">
+            <div class="text-muted small">Customer</div>
+            <div class="fw-bold fs-6" id="modalCustomer">—</div>
+          </div>
+          <div class="flex-fill text-center p-3 rounded" style="background:#e3f2fd;">
+            <div class="text-muted small">Total Amount</div>
+            <div class="fw-bold text-primary fs-5" id="modalTotal">—</div>
+          </div>
+          <div class="flex-fill text-center p-3 rounded" style="background:#f3e5f5;">
+            <div class="text-muted small">Saved?</div>
+            <div class="fw-bold fs-5" id="modalSaved">—</div>
+          </div>
+        </div>
+        <div class="receipt-box" id="modalReceipt"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" onclick="printReceipt()">
+          <i class="bi bi-printer me-1"></i>Print Receipt Only
+        </button>
+        <button class="btn btn-primary" data-bs-dismiss="modal"
+                onclick="location.reload()">
+          <i class="bi bi-plus-circle me-1"></i>New Bill
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Inventory data from Flask (passed as JSON) ──────────
+const INVENTORY = {{ inventory | tojson }};
+
+// ── Cart state ──────────────────────────────────────────
+let cart = {};   // { itemName: { qty, unitPrice } }
+let currentSelectedProduct = null;
+
+// ── DOM refs ────────────────────────────────────────────
+const itemSearchInput = document.getElementById("itemSearchInput");
+const clearSearchBtn  = document.getElementById("clearSearchBtn");
+const suggestionsList = document.getElementById("suggestionsList");
+const itemSelect      = document.getElementById("itemSelect");
+const selectedCard    = document.getElementById("selectedItemCard");
+const selectedNameEl  = document.getElementById("selectedItemName");
+const selectedStockEl = document.getElementById("selectedItemStockBadge");
+const selectedPriceEl = document.getElementById("selectedItemPrice");
+const qtyInput        = document.getElementById("qtyInput");
+const stockHint       = document.getElementById("stockHint");
+const addBtn          = document.getElementById("addToCartBtn");
+const cartBody        = document.getElementById("cartBody");
+const cartFoot        = document.getElementById("cartFoot");
+const emptyMsg        = document.getElementById("emptyCartMsg");
+const billOptions     = document.getElementById("billOptions");
+const applyVatCheck   = document.getElementById("applyVatCheck");
+const generateBtn     = document.getElementById("generateBtn");
+
+if (applyVatCheck) {
+  applyVatCheck.addEventListener("change", renderCart);
+}
+
+// ── Search & Autocomplete Logic ─────────────────────────
+function renderSuggestions(query) {
+  suggestionsList.innerHTML = "";
+  if (!query) {
+    suggestionsList.style.display = "none";
+    return;
+  }
+
+  const matches = Object.keys(INVENTORY).filter(name =>
+    name.toLowerCase().includes(query.toLowerCase())
+  );
+
+  if (matches.length === 0) {
+    suggestionsList.innerHTML = `
+      <div class="p-3 text-muted text-center small">
+        <i class="bi bi-search me-1"></i>No in-stock products matching "<strong>${escapeHtml(query)}</strong>"
+      </div>`;
+    suggestionsList.style.display = "block";
+    return;
+  }
+
+  matches.forEach((name, index) => {
+    const item = INVENTORY[name];
+    const btn  = document.createElement("button");
+    btn.type = "button";
+    btn.className = "list-group-item list-group-item-action py-2 px-3 d-flex justify-content-between align-items-center suggestion-item";
+    if (index === 0) btn.classList.add("first-match");
+
+    btn.innerHTML = `
+      <div>
+        <div class="fw-bold text-dark">${highlightMatch(name, query)}</div>
+        <small class="text-muted"><i class="bi bi-box-seam me-1"></i>${item.quantity} units available</small>
+      </div>
+      <span class="badge bg-primary rounded-pill fs-6">Rs. ${parseFloat(item.price).toFixed(2)}</span>
+    `;
+
+    btn.addEventListener("click", () => {
+      selectProduct(name);
+    });
+
+    suggestionsList.appendChild(btn);
+  });
+
+  suggestionsList.style.display = "block";
+}
+
+function highlightMatch(text, query) {
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return escapeHtml(text);
+  const before = escapeHtml(text.slice(0, idx));
+  const match  = escapeHtml(text.slice(idx, idx + query.length));
+  const after  = escapeHtml(text.slice(idx + query.length));
+  return `${before}<mark class="p-0 bg-warning">${match}</mark>${after}`;
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function selectProduct(name) {
+  if (!name || !INVENTORY[name]) return;
+  const item = INVENTORY[name];
+  currentSelectedProduct = { name, price: item.price, stock: item.quantity };
+
+  // Update UI inputs
+  itemSearchInput.value = name;
+  if (itemSelect) itemSelect.value = name;
+  suggestionsList.style.display = "none";
+
+  // Update Selected Product Status Card
+  selectedNameEl.textContent  = name;
+  selectedStockEl.textContent = `${item.quantity} in stock`;
+  selectedPriceEl.textContent = `Rs. ${parseFloat(item.price).toFixed(2)}`;
+  selectedCard.style.display  = "block";
+
+  // Configure quantity
+  qtyInput.max = item.quantity;
+  qtyInput.value = 1;
+  stockHint.textContent = `Available stock: ${item.quantity} unit(s)`;
+
+  // Focus quantity input for fast entry
+  qtyInput.focus();
+  qtyInput.select();
+}
+
+function resetProductSelection() {
+  currentSelectedProduct = null;
+  itemSearchInput.value = "";
+  if (itemSelect) itemSelect.value = "";
+  selectedCard.style.display = "none";
+  suggestionsList.style.display = "none";
+  stockHint.textContent = "";
+  qtyInput.max = "";
+  qtyInput.value = 1;
+}
+
+// Search input events
+itemSearchInput.addEventListener("input", () => {
+  renderSuggestions(itemSearchInput.value.trim());
+});
+
+itemSearchInput.addEventListener("focus", () => {
+  if (itemSearchInput.value.trim()) {
+    renderSuggestions(itemSearchInput.value.trim());
+  }
+});
+
+itemSearchInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    // Select first matching item if available
+    const firstBtn = suggestionsList.querySelector(".first-match");
+    if (firstBtn) {
+      firstBtn.click();
+    } else if (itemSearchInput.value.trim() && INVENTORY[itemSearchInput.value.trim()]) {
+      selectProduct(itemSearchInput.value.trim());
+    }
+  } else if (e.key === "Escape") {
+    suggestionsList.style.display = "none";
+  }
+});
+
+// Clear button
+clearSearchBtn.addEventListener("click", () => {
+  resetProductSelection();
+  itemSearchInput.focus();
+});
+
+// Dropdown sync
+if (itemSelect) {
+  itemSelect.addEventListener("change", () => {
+    if (itemSelect.value) {
+      selectProduct(itemSelect.value);
+    } else {
+      resetProductSelection();
+    }
+  });
+}
+
+// Close suggestion list on outside click
+document.addEventListener("click", (e) => {
+  if (!itemSearchInput.contains(e.target) && !suggestionsList.contains(e.target)) {
+    suggestionsList.style.display = "none";
+  }
+});
+
+// Quantity stepper
+function adjustQty(delta) {
+  let val = parseInt(qtyInput.value) || 1;
+  val += delta;
+  if (val < 1) val = 1;
+  if (currentSelectedProduct && val > currentSelectedProduct.stock) {
+    val = currentSelectedProduct.stock;
+  }
+  qtyInput.value = val;
+}
+
+// Pressing Enter in quantity input triggers Add To Cart
+qtyInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    addBtn.click();
+  }
+});
+
+// ── Add Item to Cart ────────────────────────────────────
+addBtn.addEventListener("click", () => {
+  if (!currentSelectedProduct) {
+    // If user typed exact name in search input but didn't click
+    const typed = itemSearchInput.value.trim();
+    if (typed && INVENTORY[typed]) {
+      selectProduct(typed);
+    } else {
+      alert("Please search and select an item first.");
+      itemSearchInput.focus();
+      return;
+    }
+  }
+
+  const { name, price, stock } = currentSelectedProduct;
+  const qty = parseInt(qtyInput.value);
+
+  if (!qty || qty < 1) {
+    alert("Quantity must be at least 1.");
+    qtyInput.focus();
+    return;
+  }
+  if (qty > stock) {
+    alert(`Only ${stock} unit(s) available in stock.`);
+    qtyInput.value = stock;
+    return;
+  }
+
+  // Accumulate if already in cart
+  if (cart[name]) {
+    const newQty = cart[name].qty + qty;
+    if (newQty > stock) {
+      alert(`Cannot add: Total quantity in cart (${newQty}) exceeds available stock (${stock}).`);
+      return;
+    }
+    cart[name].qty = newQty;
+  } else {
+    cart[name] = { qty, unitPrice: price };
+  }
+
+  renderCart();
+
+  // Reset item selection and refocus search box for next product
+  resetProductSelection();
+  itemSearchInput.focus();
+});
+
+// ── Cart Rendering ──────────────────────────────────────
+function renderCart() {
+  cartBody.innerHTML = "";
+  const names = Object.keys(cart);
+
+  if (names.length === 0) {
+    emptyMsg.style.display    = "block";
+    cartFoot.style.display    = "none";
+    billOptions.style.display = "none";
+    return;
+  }
+
+  emptyMsg.style.display    = "none";
+  cartFoot.style.display    = "";
+  billOptions.style.display = "block";
+
+  let subtotal = 0;
+  names.forEach(name => {
+    const { qty, unitPrice } = cart[name];
+    const lineTotal = qty * unitPrice;
+    subtotal += lineTotal;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="fw-semibold text-dark">${name}</td>
+      <td class="text-center fw-bold">${qty}</td>
+      <td class="text-end text-muted">Rs. ${unitPrice.toFixed(2)}</td>
+      <td class="text-end fw-bold text-dark">Rs. ${lineTotal.toFixed(2)}</td>
+      <td class="text-end">
+        <button class="btn btn-sm btn-outline-danger py-0 px-2"
+                onclick="removeItem('${name}')" title="Remove item">
+          <i class="bi bi-trash"></i>
+        </button>
+      </td>`;
+    cartBody.appendChild(tr);
+  });
+
+  const applyVat = applyVatCheck && applyVatCheck.checked;
+  if (applyVat) {
+    const vat = subtotal * 0.13;
+    const total = subtotal + vat;
+    document.getElementById("subtotalRow").style.display = "";
+    document.getElementById("vatRow").style.display      = "";
+    document.getElementById("subtotalCell").textContent  = `Rs. ${subtotal.toFixed(2)}`;
+    document.getElementById("vatCell").textContent       = `Rs. ${vat.toFixed(2)}`;
+    document.getElementById("totalCell").textContent     = `Rs. ${total.toFixed(2)}`;
+  } else {
+    document.getElementById("subtotalRow").style.display = "none";
+    document.getElementById("vatRow").style.display      = "none";
+    document.getElementById("totalCell").textContent     = `Rs. ${subtotal.toFixed(2)}`;
+  }
+}
+
+function removeItem(name) {
+  delete cart[name];
+  renderCart();
+}
+
+// ── Generate Bill (AJAX) ────────────────────────────────
+generateBtn.addEventListener("click", async () => {
+  if (Object.keys(cart).length === 0) {
+    alert("Cart is empty. Add at least one item.");
+    return;
+  }
+
+  const customerName    = document.getElementById("customerName").value.trim();
+  const customerAddress = document.getElementById("customerAddress").value.trim();
+
+  if (!customerName) {
+    document.getElementById("customerName").focus();
+    document.getElementById("customerName").classList.add("is-invalid");
+    alert("Please enter Customer Name before generating the bill.");
+    return;
+  }
+  document.getElementById("customerName").classList.remove("is-invalid");
+
+  const cartPayload = {};
+  Object.entries(cart).forEach(([name, { qty }]) => { cartPayload[name] = qty; });
+
+  const payload = {
+    cart:             cartPayload,
+    save:             true,
+    password:         document.getElementById("billPassword")?.value || "",
+    customer_name:    customerName,
+    customer_address: customerAddress,
+    apply_vat:        applyVatCheck ? applyVatCheck.checked : false,
+  };
+
+  generateBtn.disabled  = true;
+  generateBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Generating Receipt...';
+
+  try {
+    const resp = await fetch("{{ url_for('generate_bill') }}", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(payload),
+    });
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      alert(data.error || "An error occurred generating the bill.");
+      return;
+    }
+
+    // Populate Receipt Modal
+    document.getElementById("modalBillId").textContent  = data.bill_id;
+    document.getElementById("modalTotal").textContent   = `Rs. ${data.total.toFixed(2)}`;
+    document.getElementById("modalSaved").textContent   = data.protected ? "Saved (Encrypted)" : "Saved";
+    const custEl = document.getElementById("modalCustomer");
+    if (custEl) custEl.textContent = data.customer_name || "—";
+    document.getElementById("modalReceipt").textContent = data.bill_text;
+
+    // Show modal
+    new bootstrap.Modal(document.getElementById("receiptModal")).show();
+
+    // Reset cart and customer details
+    cart = {};
+    renderCart();
+    document.getElementById("customerName").value    = "";
+    document.getElementById("customerAddress").value = "";
+
+  } catch (err) {
+    alert("Network error: " + err.message);
+  } finally {
+    generateBtn.disabled  = false;
+    generateBtn.innerHTML = '<i class="bi bi-receipt-cutoff me-2"></i>Generate Bill & Print';
+  }
+});
+
+// ── Clean Pop-up Print Function ─────────────────────────
+function printReceipt() {
+  const receiptText = document.getElementById("modalReceipt").textContent;
+  const billId      = document.getElementById("modalBillId").textContent;
+
+  const win = window.open("", "PrintReceipt", "width=480,height=640");
+  win.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Receipt – ${billId}</title>
+      <style>
+        body {
+          font-family: 'Courier New', Courier, monospace;
+          font-size: 13px;
+          margin: 30px;
+          color: #000;
+          background: #fff;
+        }
+        pre {
+          white-space: pre;
+          word-wrap: break-word;
+        }
+      </style>
+    </head>
+    <body>
+      <pre>${receiptText}</pre>
+      <script>
+        window.onload = function() {
+          window.print();
+          window.onafterprint = function() { window.close(); };
+        };
+      <\/script>
+    </body>
+    </html>
+  `);
+  win.document.close();
+}
+</script>
+{% endblock %}

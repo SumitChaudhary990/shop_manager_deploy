@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Bill {{ bill_id }} – Shop Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-file-earmark-text me-2"></i>Bill: <code>{{ bill_id }}</code></h4>
+    <small class="text-muted">Viewing receipt record</small>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    {% if is_admin %}
+      <a href="{{ url_for('reset_bill_password', bill_id=bill_id) }}" class="btn btn-outline-warning btn-sm">
+        <i class="bi bi-key me-1"></i>Reset Password
+      </a>
+    {% endif %}
+    <a href="{{ url_for('edit_bill', bill_id=bill_id) }}" class="btn btn-outline-primary btn-sm">
+      <i class="bi bi-pencil-square me-1"></i>Edit Details
+    </a>
+    <a href="{{ url_for('bills_list') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i> All Bills
+    </a>
+  </div>
+</div>
+
+{% if was_admin_unlocked %}
+<div class="alert alert-success d-flex align-items-center justify-content-between mb-4 shadow-sm" style="border-radius: 12px;">
+  <div class="d-flex align-items-center gap-2">
+    <i class="bi bi-shield-check fs-4"></i>
+    <div>
+      <strong>Admin Master Unlock Active:</strong>
+      This bill was successfully decrypted using Master System Recovery.
+    </div>
+  </div>
+  <a href="{{ url_for('reset_bill_password', bill_id=bill_id) }}" class="btn btn-sm btn-warning text-dark fw-semibold">
+    <i class="bi bi-key-fill me-1"></i>Reset or Remove Password
+  </a>
+</div>
+{% endif %}
+
+{% if needs_password %}
+<!-- ── Password prompt with Admin Master Recovery ── -->
+<div class="row justify-content-center">
+  <div class="col-md-6 col-lg-5">
+    <div class="card border-0 shadow" style="border-radius:16px;">
+      <div class="card-body p-4 p-md-5 text-center">
+        <div class="d-inline-flex align-items-center justify-content-center bg-warning bg-opacity-25 text-warning rounded-circle mb-3" style="width: 70px; height: 70px;">
+          <i class="bi bi-lock-fill" style="font-size: 2.4rem;"></i>
+        </div>
+        <h4 class="fw-bold mb-1">Password Protected</h4>
+        <p class="text-muted small mb-4">This receipt was encrypted with a custom password when generated.</p>
+
+        <!-- Standard Password Form -->
+        <form method="POST" action="{{ url_for('view_bill', bill_id=bill_id) }}">
+          <div class="mb-3">
+            <input type="password" name="password" class="form-control form-control-lg text-center"
+                   placeholder="Enter bill password" required autofocus>
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg w-100 shadow-sm">
+            <i class="bi bi-unlock me-2"></i>Unlock Receipt
+          </button>
+        </form>
+
+        <hr class="my-4">
+
+        <!-- Forgotten Password Section -->
+        {% if is_admin %}
+          <div class="p-3 bg-light rounded text-start border">
+            <div class="d-flex align-items-center gap-2 mb-2 text-warning fw-bold">
+              <i class="bi bi-shield-lock-fill fs-5"></i>
+              <span>Forgot this bill's password?</span>
+            </div>
+            <p class="small text-muted mb-3">
+              You are signed in as <strong>Admin</strong>. You can bypass the password immediately using the Master Recovery key or reset it.
+            </p>
+            <div class="d-grid gap-2">
+              <a href="{{ url_for('admin_unlock_bill', bill_id=bill_id) }}" class="btn btn-outline-success fw-semibold btn-sm">
+                <i class="bi bi-shield-check me-1"></i> Admin Master Unlock (View Now)
+              </a>
+              <a href="{{ url_for('reset_bill_password', bill_id=bill_id) }}" class="btn btn-outline-warning text-dark fw-semibold btn-sm">
+                <i class="bi bi-key-fill me-1"></i> Reset / Remove Forgotten Password
+              </a>
+            </div>
+          </div>
+        {% else %}
+          <div class="p-3 bg-light rounded text-start border">
+            <div class="d-flex align-items-center gap-2 mb-1 text-secondary fw-bold small">
+              <i class="bi bi-info-circle-fill text-primary"></i>
+              <span>Forgot password?</span>
+            </div>
+            <p class="small text-muted mb-0">
+              Please contact the <strong>Store Admin</strong>. Admins can unlock or reset the password from their Admin Dashboard.
+            </p>
+          </div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+</div>
+
+{% elif bill_text %}
+<!-- ── Receipt display ── -->
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm" style="border-radius:14px;">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <span class="badge bg-light text-muted border px-3 py-2">
+            <i class="bi bi-check-circle-fill text-success me-1"></i> Receipt Ready
+          </span>
+          <button class="btn btn-primary btn-sm px-3 shadow-sm" onclick="printReceipt()">
+            <i class="bi bi-printer me-1"></i> Print Receipt Only
+          </button>
+        </div>
+        <div class="receipt-box" id="receiptContent">{{ bill_text }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{% if bill_text %}
+<script>
+// Opens a minimal popup containing only the receipt text and prints it.
+function printReceipt() {
+  const text  = document.getElementById("receiptContent").textContent;
+  const win   = window.open("", "PrintReceipt", "width=480,height=640");
+  win.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Receipt – {{ bill_id }}</title>
+      <style>
+        body { font-family:'Courier New',Courier,monospace; font-size:13px; margin:30px; color:#000; }
+        pre  { white-space:pre; word-wrap:break-word; }
+      </style>
+    </head>
+    <body>
+      <pre>${text}</pre>
+      <script>
+        window.onload = function() {
+          window.print();
+          window.onafterprint = function() { window.close(); };
+        };
+      <\/script>
+    </body>
+    </html>
+  `);
+  win.document.close();
+}
+</script>
+{% endif %}
+{% endblock %}

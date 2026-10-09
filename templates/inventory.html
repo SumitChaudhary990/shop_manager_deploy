@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Inventory – Shop Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h4><i class="bi bi-box-seam me-2"></i>Inventory</h4>
+  <a href="{{ url_for('add_item') }}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-circle me-1"></i> Add Item
+  </a>
+</div>
+
+{% if inventory %}
+<div class="card border-0 shadow-sm" style="border-radius:12px; overflow:hidden;">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th class="ps-4">#</th>
+          <th>Item Name</th>
+          <th>Price</th>
+          <th>Stock</th>
+          <th>Status</th>
+          <th class="text-end pe-4">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for name, details in inventory.items() %}
+        <tr>
+          <td class="ps-4 text-muted">{{ loop.index }}</td>
+          <td class="fw-semibold">{{ name }}</td>
+          <td>Rs. {{ "%.2f" | format(details.price) }}</td>
+          <td>{{ details.quantity }}</td>
+          <td>
+            {% if details.quantity == 0 %}
+              <span class="badge badge-out px-2 py-1">Out of Stock</span>
+            {% elif details.quantity <= 5 %}
+              <span class="badge badge-low px-2 py-1">Low Stock</span>
+            {% else %}
+              <span class="badge badge-ok px-2 py-1">In Stock</span>
+            {% endif %}
+          </td>
+          <td class="text-end pe-4">
+            <a href="{{ url_for('update_item', name=name) }}"
+               class="btn btn-sm btn-outline-primary me-1">
+              <i class="bi bi-pencil"></i> Edit
+            </a>
+            <!-- Delete with confirmation (Admin only) -->
+            {% if is_admin %}
+            <form method="POST" action="{{ url_for('delete_item', name=name) }}"
+                  class="d-inline"
+                  onsubmit="return confirm('Delete \'{{ name }}\'? This cannot be undone.');">
+              <button type="submit" class="btn btn-sm btn-outline-danger" title="Admin Delete">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-box-seam" style="font-size:3rem;"></i>
+  <p class="mt-3">No items in inventory yet.</p>
+  <a href="{{ url_for('add_item') }}" class="btn btn-primary">Add Your First Item</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Edit Bill {{ bill_id }} – Shop Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h4><i class="bi bi-pencil-square me-2"></i>Edit Bill: <code>{{ bill_id }}</code></h4>
+  <a href="{{ url_for('view_bill', bill_id=bill_id) }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i> Back to Bill
+  </a>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <div class="card border-0 shadow-sm" style="border-radius:14px;">
+      <div class="card-body p-4">
+
+        {% if needs_password %}
+        <!-- ── Step 1: Unlock the bill first ── -->
+        <div class="text-center mb-4">
+          <i class="bi bi-lock-fill text-warning" style="font-size:2.5rem;"></i>
+          <h5 class="mt-2 fw-bold">Bill is Password-Protected</h5>
+          <p class="text-muted">Enter the current password to unlock and edit this bill.</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('edit_bill', bill_id=bill_id) }}">
+          <!-- Hidden fields to carry form values through the unlock step -->
+          <input type="hidden" name="customer_name"    value="{{ meta.customer_name }}">
+          <input type="hidden" name="customer_address" value="{{ meta.customer_address }}">
+
+          <div class="mb-4">
+            <label for="current_password" class="form-label fw-semibold">Current Password</label>
+            <input type="password" id="current_password" name="current_password"
+                   class="form-control form-control-lg" required autofocus
+                   placeholder="Enter the bill's current password">
+          </div>
+          <div class="d-grid mb-3">
+            <button type="submit" class="btn btn-warning btn-lg">
+              <i class="bi bi-unlock me-2"></i>Unlock &amp; Edit
+            </button>
+          </div>
+          <div class="alert alert-light text-muted small border mb-0">
+            <i class="bi bi-info-circle me-1 text-primary"></i>
+            Forgot this bill's password? Ask the Store Admin to unlock or reset it in the Admin Dashboard.
+          </div>
+        </form>
+
+        {% else %}
+        <!-- ── Step 2: Edit form ── -->
+        <h6 class="fw-bold text-secondary mb-4">
+          <i class="bi bi-person-fill me-1 text-primary"></i>CUSTOMER DETAILS
+        </h6>
+
+        <form method="POST" action="{{ url_for('edit_bill', bill_id=bill_id) }}">
+
+          <!-- Carry the (now verified) current password silently -->
+          <input type="hidden" name="current_password"
+                 value="{{ request.form.get('current_password', '') }}">
+
+          <div class="mb-3">
+            <label for="customer_name" class="form-label fw-semibold">
+              Customer Name <span class="text-danger">*</span>
+            </label>
+            <input type="text" id="customer_name" name="customer_name"
+                   class="form-control"
+                   value="{{ request.form.get('customer_name', meta.customer_name) }}"
+                   placeholder="Customer name" required autofocus>
+          </div>
+
+          <div class="mb-4">
+            <label for="customer_address" class="form-label fw-semibold">
+              Address <span class="text-muted fw-normal">(optional)</span>
+            </label>
+            <input type="text" id="customer_address" name="customer_address"
+                   class="form-control"
+                   value="{{ request.form.get('customer_address', meta.customer_address) }}"
+                   placeholder="Customer address">
+          </div>
+
+          <hr class="my-4">
+          <h6 class="fw-bold text-secondary mb-3">
+            <i class="bi bi-shield-lock me-1 text-warning"></i>PASSWORD SETTINGS
+          </h6>
+
+          <div class="mb-3">
+            <label for="new_password" class="form-label fw-semibold">
+              New Password
+              <span class="text-muted fw-normal">(leave blank to keep current)</span>
+            </label>
+            <input type="password" id="new_password" name="new_password"
+                   class="form-control" placeholder="New password (optional)">
+          </div>
+
+          {% if meta.protected %}
+          <div class="mb-4">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox"
+                     id="remove_password" name="remove_password" value="1">
+              <label class="form-check-label text-danger" for="remove_password">
+                <i class="bi bi-unlock me-1"></i>Remove password protection
+              </label>
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="d-flex gap-3">
+            <button type="submit" class="btn btn-primary btn-lg flex-fill">
+              <i class="bi bi-save me-2"></i>Save Changes
+            </button>
+            <a href="{{ url_for('view_bill', bill_id=bill_id) }}"
+               class="btn btn-outline-secondary btn-lg">
+              Cancel
+            </a>
+          </div>
+        </form>
+        {% endif %}
+
+      </div>
+    </div>
+
+    <!-- Info box -->
+    <div class="alert alert-info mt-3 d-flex gap-2 align-items-start" style="border-radius:10px;">
+      <i class="bi bi-info-circle-fill mt-1"></i>
+      <div>
+        <strong>What can be edited?</strong><br>
+        Customer name, address, and password. The bill items and totals cannot be changed
+        since stock was already adjusted when the bill was created.
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

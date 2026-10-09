@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Sign In – Shop Manager{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 85vh;">
+  <div class="col-md-5 col-lg-4">
+
+    <!-- Brand Header -->
+    <div class="text-center mb-4">
+      <div class="d-inline-flex align-items-center justify-content-center bg-primary text-white rounded-circle shadow" style="width: 70px; height: 70px;">
+        <i class="bi bi-shop" style="font-size: 2.2rem;"></i>
+      </div>
+      <h3 class="fw-bold mt-3 text-dark">Shop Manager</h3>
+      <p class="text-muted small">Enter your username and password to sign in</p>
+    </div>
+
+    <!-- Login Card -->
+    <div class="card border-0 shadow" style="border-radius: 16px;">
+      <div class="card-body p-4 p-md-4">
+
+        <form method="POST" action="{{ url_for('login') }}">
+          <div class="mb-3">
+            <label for="username" class="form-label fw-semibold text-secondary">Username</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
+              <input type="text" class="form-control" id="username" name="username"
+                     placeholder="Enter username" required autofocus>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center">
+              <label for="password" class="form-label fw-semibold text-secondary mb-0">Password</label>
+              <a href="{{ url_for('forgot_password') }}" class="small text-decoration-none text-primary">
+                Forgot password?
+              </a>
+            </div>
+            <div class="input-group mt-1">
+              <span class="input-group-text bg-light"><i class="bi bi-key"></i></span>
+              <input type="password" class="form-control" id="password" name="password"
+                     placeholder="Enter password" required>
+            </div>
+          </div>
+
+          <div class="d-grid mt-4">
+            <button type="submit" class="btn btn-primary btn-lg shadow-sm">
+              <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+
+    <!-- Security Info Box -->
+    <div class="text-center mt-3 text-muted small">
+      <i class="bi bi-shield-lock me-1"></i> Role-Based Access Control &bull; Master Recovery System
+    </div>
+
+  </div>
+</div>
+{% endblock %}

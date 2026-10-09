@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}Staff Dashboard – Shop Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-speedometer2 text-info me-2"></i>Staff &amp; Cashier Dashboard</h4>
+    <small class="text-muted">Welcome, {{ current_user.name }}! Ready to assist customers and generate receipts.</small>
+  </div>
+  <a href="{{ url_for('billing_page') }}" class="btn btn-success btn-lg shadow-sm">
+    <i class="bi bi-receipt-cutoff me-2"></i>Start New Bill (POS)
+  </a>
+</div>
+
+<!-- ── Quick Hero Actions & Daily Counter ──────────────── -->
+<div class="row g-4 mb-4">
+  <div class="col-md-7 col-lg-8">
+    <div class="card border-0 shadow-sm text-white" style="background: linear-gradient(135deg, #1a237e, #303f9f); border-radius: 16px;">
+      <div class="card-body p-4 p-md-5">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <span class="badge bg-warning text-dark px-3 py-1 mb-3 rounded-pill fw-bold">POINT OF SALE</span>
+            <h3 class="fw-bold mb-2">Fast Customer Checkout</h3>
+            <p class="text-white-50 mb-4" style="max-width: 480px;">
+              Add items to the cart, enter customer details, calculate tax and totals automatically, and print receipts.
+            </p>
+            <a href="{{ url_for('billing_page') }}" class="btn btn-light btn-lg text-primary fw-bold px-4 shadow">
+              <i class="bi bi-cart-check-fill me-2"></i>Open Billing Terminal
+            </a>
+          </div>
+          <div class="d-none d-md-block text-white-50">
+            <i class="bi bi-shop-window" style="font-size: 6rem; opacity: 0.35;"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-5 col-lg-4">
+    <div class="row g-3 h-100">
+      <div class="col-12">
+        <div class="stat-card h-100 d-flex flex-column justify-content-center" style="background: linear-gradient(135deg, #00695c, #00897b); border-radius: 16px;">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="stat-number">{{ today_bills_count }}</div>
+              <div class="stat-label">Bills Created Today</div>
+            </div>
+            <i class="bi bi-calendar-check stat-icon"></i>
+          </div>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="stat-card h-100 d-flex flex-column justify-content-center" style="background: linear-gradient(135deg, #37474f, #546e7a); border-radius: 16px;">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="stat-number">{{ total_items }}</div>
+              <div class="stat-label">Catalog Products Available</div>
+            </div>
+            <i class="bi bi-box-seam stat-icon"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Quick Price & Stock Lookup Tool ──────────────────── -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius: 14px;">
+  <div class="card-body p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0 text-dark">
+        <i class="bi bi-search text-primary me-2"></i>Quick Stock &amp; Price Lookup
+      </h5>
+      <small class="text-muted">Type an item name to quickly answer customer pricing questions</small>
+    </div>
+
+    <div class="input-group mb-3">
+      <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+      <input type="text" id="quickLookupInput" class="form-control"
+             placeholder="Search product name (e.g. Apple, Bread, Rice...)" autocomplete="off">
+    </div>
+
+    <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+      <table class="table table-hover align-middle mb-0" id="lookupTable">
+        <thead class="table-light sticky-top">
+          <tr>
+            <th>Product Name</th>
+            <th>Unit Price</th>
+            <th>Stock Left</th>
+            <th>Availability</th>
+          </tr>
+        </thead>
+        <tbody id="lookupBody">
+          {% for name, details in inventory.items() %}
+          <tr class="lookup-row" data-name="{{ name | lower }}">
+            <td class="fw-semibold">{{ name }}</td>
+            <td class="text-primary fw-bold">Rs. {{ "%.2f" | format(details.price) }}</td>
+            <td>{{ details.quantity }} units</td>
+            <td>
+              {% if details.quantity == 0 %}
+                <span class="badge badge-out px-2 py-1">Out of Stock</span>
+              {% elif details.quantity <= 5 %}
+                <span class="badge badge-low px-2 py-1">Low ({{ details.quantity }})</span>
+              {% else %}
+                <span class="badge badge-ok px-2 py-1">In Stock</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── Stock Warning Notice (if any) ────────────────────── -->
+{% if out_of_stock %}
+<div class="alert alert-danger d-flex align-items-center gap-2 mb-4" style="border-radius: 12px;">
+  <i class="bi bi-exclamation-octagon-fill fs-5"></i>
+  <div>
+    <strong>Do not sell:</strong> The following items are currently out of stock:
+    <em>{{ out_of_stock | join(', ') }}</em>. Please notify the Store Admin for restocking.
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Recent Saved Bills ──────────────────────────────── -->
+<div class="card border-0 shadow-sm" style="border-radius: 14px;">
+  <div class="card-body p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0 text-dark">
+        <i class="bi bi-receipt text-secondary me-2"></i>Recent Invoices &amp; Receipts
+      </h5>
+      <a href="{{ url_for('bills_list') }}" class="btn btn-outline-secondary btn-sm">
+        All Bills <i class="bi bi-arrow-right ms-1"></i>
+      </a>
+    </div>
+
+    {% if recent_bills %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Bill ID</th>
+            <th>Customer</th>
+            <th>Amount</th>
+            <th>Created At</th>
+            <th>Protected?</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in recent_bills %}
+          <tr>
+            <td><code>{{ b.bill_id }}</code></td>
+            <td class="fw-semibold">{{ b.customer_name if b.customer_name else '—' }}</td>
+            <td class="fw-bold text-success">Rs. {{ "%.2f" | format(b.total_amount) }}</td>
+            <td class="text-muted small">{{ b.created_at }}</td>
+            <td>
+              {% if b.protected %}
+                <span class="badge bg-warning text-dark"><i class="bi bi-lock-fill me-1"></i>Password</span>
+              {% else %}
+                <span class="badge bg-light text-muted border">No</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <a href="{{ url_for('view_bill', bill_id=b.bill_id) }}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-eye me-1"></i>View / Print
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted text-center py-3 mb-0">No receipts created yet.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Fast interactive stock & price lookup filter
+const lookupInput = document.getElementById('quickLookupInput');
+const lookupRows  = document.querySelectorAll('.lookup-row');
+
+lookupInput.addEventListener('input', () => {
+  const q = lookupInput.value.trim().toLowerCase();
+  lookupRows.forEach(row => {
+    const name = row.dataset.name;
+    row.style.display = (!q || name.includes(q)) ? '' : 'none';
+  });
+});
+</script>
+{% endblock %}

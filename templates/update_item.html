@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Update {{ name }} – Shop Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h4><i class="bi bi-pencil me-2"></i>Update Item: <span class="text-primary">{{ name }}</span></h4>
+  <a href="{{ url_for('inventory_page') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i> Back to Inventory
+  </a>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm" style="border-radius:14px;">
+      <div class="card-body p-4">
+
+        <!-- Current values info box -->
+        <div class="alert alert-info d-flex gap-3 align-items-center mb-4">
+          <i class="bi bi-info-circle-fill fs-5"></i>
+          <div>
+            <strong>Current values:</strong><br>
+            Price: <strong>Rs. {{ "%.2f" | format(item.price) }}</strong> &nbsp;|&nbsp;
+            Quantity: <strong>{{ item.quantity }}</strong>
+          </div>
+        </div>
+
+        <form method="POST" action="{{ url_for('update_item', name=name) }}">
+
+          <div class="mb-3">
+            <label for="price" class="form-label fw-semibold">
+              New Price (Rs.) <span class="text-muted fw-normal">(leave blank to keep current)</span>
+            </label>
+            <div class="input-group">
+              <span class="input-group-text">Rs.</span>
+              <input type="number" class="form-control" id="price" name="price"
+                     min="0" step="0.01" placeholder="{{ "%.2f" | format(item.price) }}">
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label for="quantity" class="form-label fw-semibold">
+              New Quantity <span class="text-muted fw-normal">(leave blank to keep current; use +N or -N to adjust)</span>
+            </label>
+            <input type="text" class="form-control" id="quantity" name="quantity"
+                   placeholder="e.g. 50, +20, -5">
+            <div class="form-text">
+              Examples: <code>50</code> sets exact stock, <code>+20</code> adds 20, <code>-5</code> removes 5.
+            </div>
+          </div>
+
+          <div class="d-grid">
+            <button type="submit" class="btn btn-primary btn-lg">
+              <i class="bi bi-save me-2"></i>Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
