@@ -1,11 +1,12 @@
 import os
 
-# Automatically bind to Render's dynamic PORT (defaults to 5000 for local)
-port = os.environ.get("PORT", "5000")
+# Render dynamically sets PORT (defaults to 10000 on Render)
+port = os.environ.get("PORT", "10000")
 bind = f"0.0.0.0:{port}"
 
-# Worker configuration optimized for Render free/starter tiers
+# Production worker settings for Render
 workers = 2
 threads = 4
+worker_class = "gthread"
 timeout = 120
 keepalive = 5
